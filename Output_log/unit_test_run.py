@@ -7,7 +7,7 @@ from datetime import datetime
 
 # Define the absolute path to the JSON file and database
 script_dir = os.path.dirname(os.path.abspath(__file__))
-config_file_path = os.path.join(script_dir, 'fuzz_test_config.json')
+config_file_path = os.path.join(script_dir, 'unit_test_config.json')
 
 # Load configuration from JSON file
 with open(config_file_path, 'r') as config_file:
@@ -23,6 +23,7 @@ suite_name = config.get('suite_name', 'Default Suite Name')
 log_file_path = config.get('log_file_path')
 run_name = config.get('run_name')
 
+# Connect to SQLite database
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 
