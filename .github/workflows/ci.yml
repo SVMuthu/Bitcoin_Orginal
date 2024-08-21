@@ -98,19 +98,22 @@ jobs:
           git rebase --exec "echo Running test-one-commit on \$( git log -1 ) && ./autogen.sh && CC=clang CXX=clang++ ./configure --with-incompatible-bdb && make clean && make -j4 check && ./test/functional/test_runner.py -j4" ${{ env.TEST_BASE }}
       - name: Unit Test
         run: |
-          make check -j4 > ../Output_log/unit_test.log 2>&1
-          python3 ../Output_log/unit_test_creator.py 
-          python3 ../Output_log/unit_test_run.py 
+          cd /home/svm/Downloads/Bitcoin_Orginal
+          make check -j4 > Output_log/unit_test.log 2>&1
+          python3 Output_log/unit_test_creator.py 
+          python3 Output_log/unit_test_run.py
 
       - name: Functional Test
         run: |
+          cd /home/svm/Downloads/Bitcoin_Orginal
           sudo chmod -R 777 ./test
-          sudo ./test/functional/test_runner.py -j4 > ../Output_log/functional_test.log 2>&1
-          python3 ../Output_log/functional_test_creator.py 
-          python3 ../Output_log/functional_test_run.py 
+          sudo ./test/functional/test_runner.py -j4 > Output_log/functional_test.log 2>&1
+          python3 Output_log/functional_test_creator.py
+          python3 Output_log/functional_test_run.py
 
       - name: Fuzz Test
         run: |
-          sudo ./test/fuzz/test_runner.py test/fuzz/corpus > ../Output_log/fuzz_test.log 2>&1 
-          python3 ../Output_log/fuzz_test_creator.py
-          python3 ../Output_log/fuzz_test_run.py 
+          cd /home/svm/Downloads/Bitcoin_Orginal
+          sudo ./test/fuzz/test_runner.py test/fuzz/corpus > Output_log/fuzz_test.log 2>&1 
+          python3 Output_log/fuzz_test_creator.py 
+          python3 Output_log/fuzz_test_run.py 
