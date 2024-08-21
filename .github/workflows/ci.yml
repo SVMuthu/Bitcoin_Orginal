@@ -69,7 +69,7 @@ env:
 jobs:
   test-each-commit:
     name: 'test each commit'
-    runs-on: Linux
+    runs-on: ubuntu-24.04
     #if: github.event_name == 'pull_request' && github.event.pull_request.commits != 1
     timeout-minutes: 360
     env:
