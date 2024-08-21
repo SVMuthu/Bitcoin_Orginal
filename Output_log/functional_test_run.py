@@ -21,6 +21,7 @@ qase_base_url = config.get('qase_base_url')
 suite_id = config.get('suite_id')
 suite_name = config.get('suite_name', 'Default Suite Name')
 log_file_path = config.get('log_file_path')
+run_name = config.get('run_name')
 
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
