@@ -1,1 +1,63 @@
-d
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  test-each-commit:
+    name: 'Test Each Commit'
+    runs-on: Linux
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            ccache \
+            build-essential \
+            libtool \
+            autotools-dev \
+            automake \
+            pkg-config \
+            bsdmainutils \
+            python3-zmq \
+            libevent-dev \
+            libboost-dev \
+            libsqlite3-dev \
+            libdb++-dev \
+            systemtap-sdt-dev \
+            libminiupnpc-dev \
+            libnatpmp-dev \
+            qtbase5-dev \
+            qttools5-dev \
+            qttools5-dev-tools \
+            qtwayland5 \
+            libqrencode-dev \
+            libssl-dev \
+            libboost-all-dev \
+            libzmq3-dev
+
+      - name: Build
+        run: |
+          ./autogen.sh 
+          ./configure --with-incompatible-bdb CC=clang CXX=clang++
+          make -j $(nproc)
+
+      - name: Unit Test
+        run: |
+          make -C src check-unit -j $(nproc)
+          # Uncomment the line below if you want to log the output
+          # make -C src check-unit -j $(nproc) > /home/svm/Downloads/Bitcoin_Orginal/Output_log/unit_test.log 2>&1
+          cd /home/svm/Downloads/Bitcoin_Orginal/Output_log/
+          ./unit_test_creator.py
+          ./unit_test_run.py
+
