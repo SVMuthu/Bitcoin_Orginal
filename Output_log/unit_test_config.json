@@ -1,0 +1,10 @@
+{
+    "db_path": "/home/svm/Downloads/Bitcoin_Orginal/Output_log/qase.db",
+    "log_file_path": "/home/svm/Downloads/Bitcoin_Orginal/Output_log/unit_test.log",
+    "api_token": "0e1c27f86d6b739d35e44d2b39f3ef9d9397ecb3e51d9beaeb21d2c78257fd1b",
+    "project_code": "DEMO",
+    "suite_id": 30,
+    "qase_base_url": "https://api.qase.io/v1",
+    "suite_name": "Unit Test Suite",
+    "run_name": "Unit_Test_Run"
+}

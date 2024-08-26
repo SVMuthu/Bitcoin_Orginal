@@ -33,12 +33,19 @@ jobs:
           ./configure
           ./configure --with-incompatible-bdb
           make -j $(nproc)
-      - name: unit test
+      - name: Unit Test
         run: |
           make -C src check-unit -j $(nproc)
+          # make -C src check-unit -j $(nproc) > /home/svm/Downloads/Bitcoin_Orginal/Output_log/unit_test.log 2>&1
+          cd /home/svm/Downloads/Bitcoin_Orginal/Output_log/
+          ./unit_test_creator.py
+          ./unit_test_run.py
+
+           
       # - name: Functional test
       #   run: |
       #     sudo chmod -R 777 ./test
       #     sudo ./test/functional/test_runner.py -j $(nproc)
 
  
+
