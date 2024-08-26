@@ -1,7 +1,7 @@
 {
     "db_path": "/home/svm/Downloads/Bitcoin_Orginal/Output_log/qase.db",
     "log_file_path": "/home/svm/Downloads/Bitcoin_Orginal/Output_log/unit_test.log",
-    "api_token": "0e1c27f86d6b739d35e44d2b39f3ef9d9397ecb3e51d9beaeb21d2c78257fd1b",
+    "api_token": "6aa36677e903d640924ced90a1b973d20c3059d2ef5b820adae050fd6c59f372",
     "project_code": "DEMO",
     "suite_id": 30,
     "qase_base_url": "https://api.qase.io/v1",
