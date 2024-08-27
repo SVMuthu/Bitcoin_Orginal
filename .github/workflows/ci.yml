@@ -63,6 +63,7 @@ jobs:
       - name: Unit Testhttps://meet.google.com/rut-oifv-rpe
         run: |
           cd /home/svm/Downloads/Bitcoin_Orginal/Output_log
+          python3 test_runner.py
           python3 unit_test_creator.py
           python3 unit_test_run.py
 
