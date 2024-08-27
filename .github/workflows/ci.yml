@@ -23,7 +23,7 @@ env:
 jobs:
   test-each-commit:
     name: 'Bitcoin_core'
-    runs-on: Linux  # Specify the Linux distribution
+    runs-on: self-hosted  # Use self-hosted runner with label 'Linux'
     timeout-minutes: 360  # Set maximum job time to 6 hours
     env:
       MAX_COUNT: 6  # Limit the number of commits to test
@@ -63,17 +63,12 @@ jobs:
 
       - name: Unit Test
         run: |
-          # Ensure the build was successful before running tests
-          if [ -f "Makefile" ]; then
-            make check -j $(nproc)
-            cd /home/svm/Downloads/Bitcoin_Orginal/Output_log/
-            ./unit_test_creator.py
-            ./unit_test_run.py
-          else
-            echo "Makefile not found, skipping tests."
-          fi
+          make check > /home/svm/Downloads/Bitcoin_Orginal/Output_log/unit_test.log 2>&1
+          cd /home/svm/Downloads/Bitcoin_Orginal/Output_log
+          python3 unit_test_creator.py
+          python3 unit_test_run.py
 
-      # Uncomment and configure if functional tests are required
+      # Uncomment and adjust if functional tests are needed
       # - name: Functional test
       #   run: |
       #     sudo chmod -R 777 ./test
