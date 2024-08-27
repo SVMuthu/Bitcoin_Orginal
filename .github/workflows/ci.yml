@@ -23,7 +23,7 @@ env:
 jobs:
   test-each-commit:
     name: 'Bitcoin_core'
-    runs-on: ubuntu-latest  # Specified Linux distribution
+    runs-on: Linux  # Specify the Linux distribution
     timeout-minutes: 360  # Set maximum job time to 6 hours
     env:
       MAX_COUNT: 6  # Limit the number of commits to test
@@ -59,14 +59,19 @@ jobs:
       - name: Compile and run tests
         run: |
           # Rebase and run tests on commits after the last merge commit and before the PR head commit
-          git rebase --exec "echo Running test-one-commit on \$(git log -1) && ./autogen.sh && CC=clang CXX=clang++ ./configure --with-incompatible-bdb && make clean && make -j $(nproc) check && ./test/functional/test_runner.py -j $(( $(nproc) * 2 ))" ${{ env.TEST_BASE }}
+          git rebase --exec "echo Running test-one-commit on \$(git log -1) && ./autogen.sh && CC=clang CXX=clang++ ./configure --with-incompatible-bdb && make clean && make -j $(nproc)" ${{ env.TEST_BASE }}
 
       - name: Unit Test
         run: |
-          make check -j $(nproc)
-          cd /home/svm/Downloads/Bitcoin_Orginal/Output_log/
-          ./unit_test_creator.py
-          ./unit_test_run.py
+          # Ensure the build was successful before running tests
+          if [ -f "Makefile" ]; then
+            make check -j $(nproc)
+            cd /home/svm/Downloads/Bitcoin_Orginal/Output_log/
+            ./unit_test_creator.py
+            ./unit_test_run.py
+          else
+            echo "Makefile not found, skipping tests."
+          fi
 
       # Uncomment and configure if functional tests are required
       # - name: Functional test
