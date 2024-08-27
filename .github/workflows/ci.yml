@@ -74,7 +74,7 @@ jobs:
 
   asan-lsan-ubsan-integer-no-depends-usdt:
     name: 'ASan + LSan + UBSan + integer, no depends, USDT'
-    runs-on: Linux # has to match container in ci/test/00_setup_env_native_asan.sh for tracing tools
+    runs-on: ubuntu-latest # has to match container in ci/test/00_setup_env_native_asan.sh for tracing tools
     # No need to run on the read-only mirror, unless it is a PR.
     #if: github.repository != 'bitcoin-core/gui' || github.event_name == 'pull_request'
     timeout-minutes: 120
