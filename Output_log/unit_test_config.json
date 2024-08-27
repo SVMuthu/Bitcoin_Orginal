@@ -6,6 +6,8 @@
     "suite_id": 30,
     "qase_base_url": "https://api.qase.io/v1",
     "suite_name": "Unit Test Suite",
-    "run_name": "Unit Test Run"
+    "run_name": "Unit Test Run",
+    "log_dir": "unit_test_log" 
+
 }
 
