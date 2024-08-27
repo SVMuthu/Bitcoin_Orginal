@@ -1,8 +1,9 @@
 import json
 import sqlite3
-import requests
 import re
 import os
+import requests
+from datetime import datetime
 
 # Define the absolute path to the JSON file and database
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -10,68 +11,181 @@ config_file_path = os.path.join(script_dir, 'unit_test_config.json')
 
 # Load configuration from JSON file
 with open(config_file_path, 'r') as config_file:
-        config = json.load(config_file)
+    config = json.load(config_file)
 
 # Extract configuration details
 db_path = config.get('db_path')
-api_token = config.get('api_token')
-project_code = config.get('project_code')
-qase_base_url = config.get('qase_base_url')
-suite_id = config.get('suite_id')
-suite_name = config.get('suite_name', 'Default Suite Name')
 log_file_path = config.get('log_file_path')
+qase_base_url = config.get('qase_base_url')
+project_code = config.get('project_code')
+api_token = config.get('api_token')
+suite_id = config.get('suite_id')
+suite_name = config.get('suite_name')
 
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 
-# Ensure the table exists with the correct structure
+# Ensure the main table exists with the correct structure
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS unit_test_results (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        test_name TEXT UNIQUE,
+        test_name TEXT,
         status TEXT,
         details TEXT,
-        duration TEXT
+        duration TEXT,
+        processed BOOLEAN DEFAULT 0,
+        timestamp TEXT,
+        UNIQUE (test_name, status, details, duration, timestamp)
     )
 ''')
 
-# Function to check if a specific test is already in the database
-def test_exists(test_name):
-    cursor.execute('SELECT 1 FROM unit_test_results WHERE test_name = ?', (test_name,))
-    return cursor.fetchone() is not None
+# Create or recreate the temporary table
+cursor.execute('DROP TABLE IF EXISTS temp_unit_test_results')
 
-# Function to insert data into the table
-def insert_data(test_name, status, details, duration):
-    if not test_exists(test_name):
+cursor.execute('''
+    CREATE TEMPORARY TABLE temp_unit_test_results (
+        test_name TEXT,
+        status TEXT,
+        details TEXT,
+        duration TEXT,
+        timestamp TEXT,
+        UNIQUE (test_name, status, details, duration, timestamp)
+    )
+''')
+
+def insert_data_into_temp(test_name, status, details, duration):
+    try:
+        timestamp = datetime.now().isoformat()
         cursor.execute('''
-            INSERT INTO unit_test_results (test_name, status, details, duration)
-            VALUES (?, ?, ?, ?)
-        ''', (test_name, status, details, duration))
+            INSERT OR REPLACE INTO temp_unit_test_results (test_name, status, details, duration, timestamp)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (test_name, status, details, duration, timestamp))
         conn.commit()
         return True
-    return False
+    except sqlite3.Error as e:
+        print(f"Error inserting data into temp table: {e}")
+        return False
 
-# Function to parse and insert data from log lines
 def process_log_line(line):
-    # Regular expression to match the log line pattern
-    pattern = re.compile(r'Running tests: (.+?) from (.+?)\.cpp')
-    match = pattern.match(line.strip())
-    if match:
-        test_name, source_file = match.groups()
-        status = 'passed'  # Default status for unit test logs
-        details = f"Source file: {source_file}"
-        duration = None  # Duration not provided in the log format
-        inserted = insert_data(test_name, status, details, duration)
-        return test_name, details, inserted
-    return None, None, False
+    running_pattern = re.compile(r'Running tests: (.+?) from (.+?)\.(cpp|h|py|java|c|rb|go|php)')
+    skipped_pattern = re.compile(r'Test suite "(.+?)" (is skipped|is disabled)')
+    failed_pattern = re.compile(r'error: in "(.+?)"')
+    core_dump_pattern = re.compile(r'core dumped')
 
-# Process log file
+    duration = '0s'
+
+    if core_dump_pattern.search(line):
+        test_name = "unknown"
+        return test_name, 'failed - core dumped', 'Core dump occurred', duration
+
+    match = running_pattern.search(line)
+    if match:
+        test_name = match.group(1).strip()
+        details = f"Source file: {match.group(2)}.{match.group(3)}"
+        return test_name, 'passed', details, duration
+
+    match = failed_pattern.search(line)
+    if match:
+        test_name = match.group(1).strip()
+        return test_name, 'failed', 'Error occurred', duration
+
+    match = skipped_pattern.search(line)
+    if match:
+        test_name = match.group(1).strip()
+        return test_name, 'skipped', 'Test suite skipped or disabled', duration
+    
+    return None, None, None, duration
+
+def update_original_table():
+    try:
+        # Begin the transaction
+        conn.execute('BEGIN')
+
+        # Update existing records in the original table
+        cursor.execute('''
+            UPDATE unit_test_results
+            SET status = (SELECT status FROM temp_unit_test_results
+                          WHERE temp_unit_test_results.test_name = unit_test_results.test_name
+                            AND temp_unit_test_results.details = unit_test_results.details
+                            AND temp_unit_test_results.duration = unit_test_results.duration
+                            AND temp_unit_test_results.timestamp = unit_test_results.timestamp),
+                details = (SELECT details FROM temp_unit_test_results
+                           WHERE temp_unit_test_results.test_name = unit_test_results.test_name
+                             AND temp_unit_test_results.status = unit_test_results.status
+                             AND temp_unit_test_results.duration = unit_test_results.duration
+                             AND temp_unit_test_results.timestamp = unit_test_results.timestamp),
+                duration = (SELECT duration FROM temp_unit_test_results
+                            WHERE temp_unit_test_results.test_name = unit_test_results.test_name
+                              AND temp_unit_test_results.status = unit_test_results.status
+                              AND temp_unit_test_results.details = unit_test_results.details
+                              AND temp_unit_test_results.timestamp = unit_test_results.timestamp),
+                timestamp = (SELECT timestamp FROM temp_unit_test_results
+                             WHERE temp_unit_test_results.test_name = unit_test_results.test_name
+                               AND temp_unit_test_results.status = unit_test_results.status
+                               AND temp_unit_test_results.details = unit_test_results.details
+                               AND temp_unit_test_results.duration = temp_unit_test_results.duration)
+            WHERE EXISTS (SELECT 1 FROM temp_unit_test_results
+                          WHERE temp_unit_test_results.test_name = unit_test_results.test_name
+                            AND temp_unit_test_results.status = unit_test_results.status
+                            AND temp_unit_test_results.details = unit_test_results.details
+                            AND temp_unit_test_results.duration = unit_test_results.duration
+                            AND temp_unit_test_results.timestamp = unit_test_results.timestamp)
+        ''')
+
+        # Insert new records into the original table
+        cursor.execute('''
+            INSERT INTO unit_test_results (test_name, status, details, duration, processed, timestamp)
+            SELECT test_name, status, details, duration, 0, timestamp
+            FROM temp_unit_test_results
+            WHERE NOT EXISTS (
+                SELECT 1 FROM unit_test_results
+                WHERE unit_test_results.test_name = temp_unit_test_results.test_name
+                  AND unit_test_results.status = temp_unit_test_results.status
+                  AND unit_test_results.details = temp_unit_test_results.details
+                  AND unit_test_results.duration = temp_unit_test_results.duration
+                  AND unit_test_results.timestamp = temp_unit_test_results.timestamp
+            )
+        ''')
+
+        # Mark processed rows as processed
+        cursor.execute('''
+            UPDATE unit_test_results
+            SET processed = 1
+            WHERE EXISTS (
+                SELECT 1 FROM temp_unit_test_results
+                WHERE temp_unit_test_results.test_name = unit_test_results.test_name
+                  AND temp_unit_test_results.status = unit_test_results.status
+                  AND temp_unit_test_results.details = unit_test_results.details
+                  AND temp_unit_test_results.duration = unit_test_results.duration
+                  AND temp_unit_test_results.timestamp = unit_test_results.timestamp
+            )
+        ''')
+
+        # Commit the transaction
+        conn.execute('COMMIT')
+        return True
+
+    except sqlite3.Error as e:
+        conn.rollback()
+        print(f"Error updating the original table: {e}")
+        return False
+
+def test_exists(test_name):
+    cursor.execute('SELECT 1 FROM unit_test_results WHERE test_name = ? AND processed = 1', (test_name,))
+    return cursor.fetchone() is not None
+
+# Process the log file and insert data into the temporary table
 inserted_count = 0
 with open(log_file_path, 'r') as log_file:
     for line in log_file:
-        test_name, description, inserted = process_log_line(line)
-        if inserted:
-            inserted_count += 1
+        test_name, status, details, duration = process_log_line(line)
+        if test_name and not test_exists(test_name):
+            inserted = insert_data_into_temp(test_name, status, details, duration)
+            if inserted:
+                inserted_count += 1
+
+# Update the original table with data from the temp table
+update_successful = update_original_table()
 
 # Fetch data from the database
 cursor.execute('SELECT test_name FROM unit_test_results')
@@ -201,4 +315,3 @@ else:
 
 # Close the SQLite connection
 conn.close()
-
