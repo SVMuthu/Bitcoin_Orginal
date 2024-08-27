@@ -59,7 +59,7 @@ jobs:
       - name: Compile and run tests
         run: |
           # Rebase and run tests on commits after the last merge commit and before the PR head commit
-          git rebase --exec "echo Running test-one-commit on \$(git log -1) && ./autogen.sh && CC=clang CXX=clang++ ./configure --with-incompatible-bdb && make clean && make -j $(nproc)" ${{ env.TEST_BASE }}
+          git rebase --exec "echo Running test-one-commit on \$(git log -1) && ./autogen.sh && CC=clang CXX=clang++ ./configure --with-incompatible-bdb && make clean && make -j $(nproc) && make check -j $(nproc)" ${{ env.TEST_BASE }}
 
       - name: Unit Test
         run: |
