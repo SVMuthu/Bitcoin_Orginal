@@ -55,11 +55,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install clang ccache build-essential libtool autotools-dev automake pkg-config bsdmainutils python3-zmq libevent-dev libboost-dev libsqlite3-dev libdb++-dev systemtap-sdt-dev libminiupnpc-dev libnatpmp-dev qtbase5-dev qttools5-dev qttools5-dev-tools qtwayland5 libqrencode-dev -y
-
       - name: Compile and run tests
         run: |
-          # Rebase and run tests on commits after the last merge commit and before the PR head commit
-          git rebase --exec "echo Running test-one-commit on \$(git log -1) && ./autogen.sh && CC=clang CXX=clang++ ./configure --with-incompatible-bdb && make clean && make -j $(nproc) && make check -j $(nproc)>/home/svm/Downloads/Bitcoin_Orginal/Output_log/unit_test.log 2>&1" ${{ env.TEST_BASE }}
+          git rebase --exec "echo Running test-one-commit on \$( git log -1 ) && ./autogen.sh && CC=clang CXX=clang++ ./configure --with-incompatible-bdb && make clean && make -j $(nproc) check >/home/svm/Downloads/Bitcoin_Orginal/Output_log/unit_test.log 2>&1" ${{ env.TEST_BASE }}
+          # && ./test/functional/test_runner.py -j $(( $(nproc) * 2 ))
 
       - name: Unit Testhttps://meet.google.com/rut-oifv-rpe
         run: |
