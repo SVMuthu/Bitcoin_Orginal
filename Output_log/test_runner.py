@@ -1,11 +1,13 @@
 import re
+import subprocess
+import os
 
 def process_log_line(line):
     # Define patterns
-    running_pattern = re.compile(r'Running tests: (.+?) from (.+?)\.(cpp|h|py|java|c|rb|go|php)')
-    skipped_pattern = re.compile(r'Test suite "(.+?)" (is skipped|is disabled)')
+    running_pattern = re.compile(r'Running tests: (.+?) from (.+?\.(?:cpp|h|py|java|c|rb|go|php))')
+    skipped_pattern = re.compile(r'Test suite "(.+?)" (is skipped(?: because .*)?|is disabled)')
     failed_pattern = re.compile(r'error: in "(.+?)"')
-    core_dump_pattern = re.compile(r'core dumped')
+    core_dump_pattern = re.compile(r'(?:core dumped|Aborted \(core dumped\))')
     duration_pattern = re.compile(r'testing time: (\d+)us')
 
     # Default values
@@ -15,13 +17,14 @@ def process_log_line(line):
     # Check for core dump
     if core_dump_pattern.search(line):
         test_name = "unknown"
-        return test_name, 'failed - core dumped', 'Core dump occurred', duration
+        description = 'Core dump occurred'
+        return test_name, 'failed - core dumped', description, duration
 
     # Check for failed tests
     match = failed_pattern.search(line)
     if match:
         test_name = match.group(1).strip()
-        description = 'Error occurred'
+        description = 'Test failed due to an error.'
         return test_name, 'failed', description, duration
 
     # Check for skipped tests
@@ -35,72 +38,77 @@ def process_log_line(line):
     match = running_pattern.search(line)
     if match:
         test_name = match.group(1).strip()
-        return test_name, 'passed', description, duration
+        test_file = match.group(2).strip()
+        return f"{test_name} from {test_file}", 'passed', description, duration
 
     # Check for duration
     match = duration_pattern.search(line)
     if match:
         duration = f"{int(match.group(1)) // 1000}s"
-    
+
     return None, None, None, duration
 
-def count_total_cases(log_file_path):
-    try:
-        with open(log_file_path, 'r') as file:
-            logs = file.readlines()
-    except FileNotFoundError:
-        print(f"Error: The file {log_file_path} was not found.")
-        return 0
-
+def process_and_display(logs, log_file):
     # Initialize variables
+    test_cases = []
     total_count = 0
 
+    # First pass to count total test cases
     for line in logs:
         test_name, status, description, duration = process_log_line(line)
         if test_name:
             total_count += 1
 
-    return total_count
-
-def process_log_file(log_file_path):
-    try:
-        with open(log_file_path, 'r') as file:
-            logs = file.readlines()
-    except FileNotFoundError:
-        print(f"Error: The file {log_file_path} was not found.")
-        return [], 0
-
-    # Get the total number of cases
-    total_count = count_total_cases(log_file_path)
-
-    # Initialize variables
-    test_cases = []
     test_number = 0
-
+    # Second pass to format output with the correct test number/total count
     for line in logs:
         test_name, status, description, duration = process_log_line(line)
         if test_name:
             test_number += 1
-            # Append description only for failed or skipped tests
             if status in ['failed', 'skipped']:
-                test_cases.append(f"{test_number}/{total_count} - {test_name}, {status}, Duration: {duration}, ({description})")
+                test_case = f"{test_number}/{total_count} - {test_name}, {status}, Duration: {duration}, ({description})"
             else:
-                test_cases.append(f"{test_number}/{total_count} - {test_name}, {status}, Duration: {duration}")
+                test_case = f"{test_number}/{total_count} - {test_name}, {status}, Duration: {duration}"
+            
+            test_cases.append(test_case)
+            print(test_case)
+            log_file.write(test_case + '\n')  # Write only the formatted line to the log file
     
-    return test_cases, total_count
+    # Write total test cases to the log file
+    summary = f"\nUnit Test Cases ({total_count} total cases)"
+    print(summary)
+    log_file.write(summary + '\n')
+
+def run_make_check():
+    # Save the current working directory
+    original_dir = os.getcwd()
+
+    # Create or overwrite the log file
+    with open('unit_test_cases.log', 'w') as log_file:
+        try:
+            # Change to the parent directory (if needed)
+            os.chdir('..')
+
+            # Run the make check command
+            process = subprocess.Popen(['make', '-C', 'src', 'check-unit', '-j', '$(nproc)'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+            logs = []
+            for line in process.stdout:
+                if process_log_line(line)[0]:  # Only add relevant lines
+                    print(line, end='')  # Print the make check output in real-time
+                    logs.append(line)
+
+            # Wait for the command to complete
+            process.wait()
+
+            # Process and display the results, and write only the summary to the log file
+            print("\nUnit Test Cases...")
+            process_and_display(logs, log_file)
+
+        finally:
+            # Restore the original working directory
+            os.chdir(original_dir)
 
 if __name__ == "__main__":
-    log_file_path = "unit_test.log"  # Replace with your log file path
-
-    formatted_logs, total_count = process_log_file(log_file_path)
-
-    # Print total count first
-    print(f"Total Cases: {total_count}")
-
-    # Print formatted logs
-    if formatted_logs:
-        for log in formatted_logs:
-            print(log)
-    else:
-        print("No test cases found or file processing failed.")
+    run_make_check()
 
