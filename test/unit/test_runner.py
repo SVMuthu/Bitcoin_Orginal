@@ -86,13 +86,13 @@ def run_make_check():
     original_dir = os.getcwd()
 
     # Create or overwrite the log file
-    with open('unit_test_cases.log', 'w') as log_file:
+    with open('test/unit/unit_test_cases.log', 'w') as log_file:
         try:
             # Change to the parent directory (if needed)
-            os.chdir('..')
+           # os.chdir('../..')
 
             # Run the make check command
-            process = subprocess.Popen(['make', '-C', 'src', 'check-unit', '-j', '$(nproc)'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            process = subprocess.Popen(['make', 'check', '-j', '$(nproc)'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
             logs = []
             for line in process.stdout:
