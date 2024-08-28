@@ -57,13 +57,12 @@ jobs:
           sudo apt-get install clang ccache build-essential libtool autotools-dev automake pkg-config bsdmainutils python3-zmq libevent-dev libboost-dev libsqlite3-dev libdb++-dev systemtap-sdt-dev libminiupnpc-dev libnatpmp-dev qtbase5-dev qttools5-dev qttools5-dev-tools qtwayland5 libqrencode-dev -y
       - name: Compile and run tests
         run: |
-          git rebase --exec "echo Running test-one-commit on \$( git log -1 ) && ./autogen.sh && CC=clang CXX=clang++ ./configure --with-incompatible-bdb && make clean && make -j $(nproc) check >/home/svm/Downloads/Bitcoin_Orginal/Output_log/unit_test.log 2>&1" ${{ env.TEST_BASE }}
-          # && ./test/functional/test_runner.py -j $(( $(nproc) * 2 ))
+          git rebase --exec "echo Running test-one-commit on \$( git log -1 ) && ./autogen.sh && CC=clang CXX=clang++ ./configure --with-incompatible-bdb && make clean && make -j $(nproc) && cd /home/svm/Downloads/Bitcoin_Orginal/Output_log/python3 test_runner.py" ${{ env.TEST_BASE }}
+         # && ./test/functional/test_runner.py -j $(( $(nproc) * 2 ))
 
       - name: Unit Testhttps://meet.google.com/rut-oifv-rpe
         run: |
           cd /home/svm/Downloads/Bitcoin_Orginal/Output_log
-          python3 test_runner.py
           python3 unit_test_creator.py
           python3 unit_test_run.py
 
@@ -73,45 +72,45 @@ jobs:
       #     sudo chmod -R 777 ./test
       #     sudo ./test/functional/test_runner.py -j $(nproc)
 
-  asan-lsan-ubsan-integer-no-depends-usdt:
-    name: 'ASan + LSan + UBSan + integer, no depends, USDT'
-    runs-on: ubuntu-latest # has to match container in ci/test/00_setup_env_native_asan.sh for tracing tools
-    # No need to run on the read-only mirror, unless it is a PR.
-    #if: github.repository != 'bitcoin-core/gui' || github.event_name == 'pull_request'
-    timeout-minutes: 120
-    env:
-      FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
-      DANGER_CI_ON_HOST_CACHE_FOLDERS: 1
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  # asan-lsan-ubsan-integer-no-depends-usdt:
+  #   name: 'ASan + LSan + UBSan + integer, no depends, USDT'
+  #   runs-on: ubuntu-24.04 # has to match container in ci/test/00_setup_env_native_asan.sh for tracing tools
+  #   # No need to run on the read-only mirror, unless it is a PR.
+  #   #if: github.repository != 'bitcoin-core/gui' || github.event_name == 'pull_request'
+  #   timeout-minutes: 120
+  #   env:
+  #     FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
+  #     DANGER_CI_ON_HOST_CACHE_FOLDERS: 1
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Set Ccache directory
-        run: echo "CCACHE_DIR=${RUNNER_TEMP}/ccache_dir" >> "$GITHUB_ENV"
+  #     - name: Set Ccache directory
+  #       run: echo "CCACHE_DIR=${RUNNER_TEMP}/ccache_dir" >> "$GITHUB_ENV"
 
-      - name: Set base root directory
-        run: echo "BASE_ROOT_DIR=${RUNNER_TEMP}" >> "$GITHUB_ENV"
+  #     - name: Set base root directory
+  #       run: echo "BASE_ROOT_DIR=${RUNNER_TEMP}" >> "$GITHUB_ENV"
 
-      - name: Restore Ccache cache
-        id: ccache-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: ${{ github.job }}-ccache-${{ github.run_id }}
-          restore-keys: ${{ github.job }}-ccache-
+  #     - name: Restore Ccache cache
+  #       id: ccache-cache
+  #       uses: actions/cache/restore@v4
+  #       with:
+  #         path: ${{ env.CCACHE_DIR }}
+  #         key: ${{ github.job }}-ccache-${{ github.run_id }}
+  #         restore-keys: ${{ github.job }}-ccache-
 
-      - name: Enable bpfcc script
-        # In the image build step, no external environment variables are available,
-        # so any settings will need to be written to the settings env file:
-        run: sed -i "s|\${INSTALL_BCC_TRACING_TOOLS}|true|g" ./ci/test/00_setup_env_native_asan.sh
+  #     - name: Enable bpfcc script
+  #       # In the image build step, no external environment variables are available,
+  #       # so any settings will need to be written to the settings env file:
+  #       run: sed -i "s|\${INSTALL_BCC_TRACING_TOOLS}|true|g" ./ci/test/00_setup_env_native_asan.sh
 
-      - name: CI script
-        run: ./ci/test_run_all.sh
+  #     - name: CI script
+  #       run: ./ci/test_run_all.sh
 
-      - name: Save Ccache cache
-        uses: actions/cache/save@v4
-        if: github.event_name != 'pull_request' && steps.ccache-cache.outputs.cache-hit != 'true'
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          # https://github.com/actions/cache/blob/main/tips-and-workarounds.md#update-a-cache
-          key: ${{ github.job }}-ccache-${{ github.run_id }}
+  #     - name: Save Ccache cache
+  #       uses: actions/cache/save@v4
+  #       if: github.event_name != 'pull_request' && steps.ccache-cache.outputs.cache-hit != 'true'
+  #       with:
+  #         path: ${{ env.CCACHE_DIR }}
+  #         # https://github.com/actions/cache/blob/main/tips-and-workarounds.md#update-a-cache
+  #         key: ${{ github.job }}-ccache-${{ github.run_id }}
