@@ -60,7 +60,7 @@ jobs:
           git rebase --exec "echo Running test-one-commit on \$( git log -1 ) && ./autogen.sh && CC=clang CXX=clang++ ./configure --with-incompatible-bdb && make clean && make -j $(nproc) && python3 test/unit/test_runner.py" ${{ env.TEST_BASE }}
          # && ./test/functional/test_runner.py -j $(( $(nproc) * 2 )
 
-      - name: Unit Testhttps://meet.google.com/rut-oifv-rpe
+      - name: Unit Test
         run: |
           cd /home/svm/Downloads/Bitcoin_Orginal/Output_log
           python3 unit_test_creator.py
