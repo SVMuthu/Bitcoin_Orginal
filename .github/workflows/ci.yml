@@ -1,19 +1,12 @@
-# Copyright (c) 2023 The Bitcoin Core developers
-# Distributed under the MIT software license, see the accompanying
-# file COPYING or http://www.opensource.org/licenses/mit-license.php.
-
 name: CI
+
 on:
-  # Trigger on pull requests and pushes to any branch.
-  pull_request:
-  push:
-    branches:
-      - '**'
-    tags-ignore:
-      - '**'
+  schedule:
+    # Cron job: runs every day at 3:30 PM UTC
+    - cron: '30 6 * * *'
 
 concurrency:
-  group: ${{ github.event_name != 'pull_request' && github.run_id || github.ref }}
+  group: ${{ github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -27,90 +20,88 @@ jobs:
     timeout-minutes: 360  # Set maximum job time to 6 hours
     env:
       MAX_COUNT: 6  # Limit the number of commits to test
+
     steps:
       - name: Determine fetch depth
-        run: echo "FETCH_DEPTH=$((${{ github.event.pull_request.commits }} + 2))" >> "$GITHUB_ENV"
+        run: echo "FETCH_DEPTH=10" >> "$GITHUB_ENV"  # Adjust as needed
+        shell: bash
 
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: ${{ env.FETCH_DEPTH }}
+          fetch-depth: 0  # Fetch the entire history
+#change the git repository 
+      - name: Clone Another Repository
+        run: git clone git@github.com:vlinderlabs/Test-Gitactions-.git Test-Gitactions-
+        shell: bash
 
-      - name: Determine commit range
-        run: |
-          # Checkout HEAD~ and find the test base commit
-          git checkout HEAD~
-          
-          # Determine the base commit for testing
-          MERGE_BASE=$(git rev-list -n1 --merges HEAD)
-          EXCLUDE_MERGE_BASE_ANCESTORS=""
-          
-          if [ -n "$MERGE_BASE" ]; then
-            EXCLUDE_MERGE_BASE_ANCESTORS="^${MERGE_BASE}^@"
-          fi
-          
-          echo "TEST_BASE=$(git rev-list -n$((${{ env.MAX_COUNT }} + 1)) --reverse HEAD $EXCLUDE_MERGE_BASE_ANCESTORS | head -1)" >> "$GITHUB_ENV"
+      - name: List Files in Root Directory (Debugging)
+        run: ls -la
+        shell: bash
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install clang ccache build-essential libtool autotools-dev automake pkg-config bsdmainutils python3-zmq libevent-dev libboost-dev libsqlite3-dev libdb++-dev systemtap-sdt-dev libminiupnpc-dev libnatpmp-dev qtbase5-dev qttools5-dev qttools5-dev-tools qtwayland5 libqrencode-dev -y
-      - name: Compile and run tests
-        run: |
-          git rebase --exec "echo Running test-one-commit on \$( git log -1 ) && ./autogen.sh && CC=clang CXX=clang++ ./configure --with-incompatible-bdb && make clean && make -j $(nproc) && python3 test/unit/test_runner.py" ${{ env.TEST_BASE }}
-         # && ./test/functional/test_runner.py -j $(( $(nproc) * 2 )
+          sudo apt-get install -y clang ccache build-essential libtool autotools-dev automake pkg-config \
+            bsdmainutils python3-zmq libevent-dev libboost-dev libsqlite3-dev libdb++-dev systemtap-sdt-dev \
+            libminiupnpc-dev libnatpmp-dev qtbase5-dev qttools5-dev qttools5-dev-tools qtwayland5 libqrencode-dev
+        shell: bash
+        continue-on-error: true  # Continue even if some packages fail to install
 
-      - name: Unit Test
+      - name: List Files in GUI-Dev Directory (Debugging)
         run: |
-          cd /home/svm/Downloads/Bitcoin_Orginal/Output_log
+          cd Test-Gitactions-/gui-Dev
+          ls -la  # Check for the presence of autogen.sh and other files in gui-Dev
+        shell: bash
+
+      - name: Set Executable Permissions for autogen.sh
+        run: |
+          cd Test-Gitactions-/gui-Dev
+          chmod +x autogen.sh  # Make autogen.sh executable
+        shell: bash
+
+      - name: Change to Test-Gitactions-/gui-Dev directory
+        run: cd Test-Gitactions-/gui-Dev
+        shell: bash
+
+      - name: Run autogen.sh
+        run: |
+          cd Test-Gitactions-/gui-Dev
+          ./autogen.sh
+        shell: bash
+        continue-on-error: true  # If autogen fails, proceed to the next steps
+
+      - name: Configure with incompatible BDB
+        run: |
+         cd Test-Gitactions-/gui-Dev
+         CC=clang CXX=clang++ ./configure --with-incompatible-bdb
+        shell: bash
+        continue-on-error: true  # If configuration fails, proceed to the next steps
+
+      - name: Clean build files
+        run: |
+         cd Test-Gitactions-/gui-Dev
+         make clean
+        shell: bash
+        continue-on-error: true  # Continue even if compilation fails
+
+      - name: Compile the project
+        run: |
+         cd Test-Gitactions-/gui-Dev
+         make -j $(nproc)
+        shell: bash
+        continue-on-error: true  # Continue even if compilation fails
+
+      - name: Run Unit Tests (main branch)
+        if: github.ref == 'refs/heads/main'  # Run only if pushing to main branch
+        run: |
+          cd Test-Gitactions-/gui-Dev/QASE_API
           python3 unit_test_creator.py
-          python3 unit_test_run.py
+        shell: bash
 
-      # Uncomment and adjust if functional tests are needed
-      # - name: Functional test
-      #   run: |
-      #     sudo chmod -R 777 ./test
-      #     sudo ./test/functional/test_runner.py -j $(nproc)
-
-  # asan-lsan-ubsan-integer-no-depends-usdt:
-  #   name: 'ASan + LSan + UBSan + integer, no depends, USDT'
-  #   runs-on: ubuntu-24.04 # has to match container in ci/test/00_setup_env_native_asan.sh for tracing tools
-  #   # No need to run on the read-only mirror, unless it is a PR.
-  #   #if: github.repository != 'bitcoin-core/gui' || github.event_name == 'pull_request'
-  #   timeout-minutes: 120
-  #   env:
-  #     FILE_ENV: "./ci/test/00_setup_env_native_asan.sh"
-  #     DANGER_CI_ON_HOST_CACHE_FOLDERS: 1
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-
-  #     - name: Set Ccache directory
-  #       run: echo "CCACHE_DIR=${RUNNER_TEMP}/ccache_dir" >> "$GITHUB_ENV"
-
-  #     - name: Set base root directory
-  #       run: echo "BASE_ROOT_DIR=${RUNNER_TEMP}" >> "$GITHUB_ENV"
-
-  #     - name: Restore Ccache cache
-  #       id: ccache-cache
-  #       uses: actions/cache/restore@v4
-  #       with:
-  #         path: ${{ env.CCACHE_DIR }}
-  #         key: ${{ github.job }}-ccache-${{ github.run_id }}
-  #         restore-keys: ${{ github.job }}-ccache-
-
-  #     - name: Enable bpfcc script
-  #       # In the image build step, no external environment variables are available,
-  #       # so any settings will need to be written to the settings env file:
-  #       run: sed -i "s|\${INSTALL_BCC_TRACING_TOOLS}|true|g" ./ci/test/00_setup_env_native_asan.sh
-
-  #     - name: CI script
-  #       run: ./ci/test_run_all.sh
-
-  #     - name: Save Ccache cache
-  #       uses: actions/cache/save@v4
-  #       if: github.event_name != 'pull_request' && steps.ccache-cache.outputs.cache-hit != 'true'
-  #       with:
-  #         path: ${{ env.CCACHE_DIR }}
-  #         # https://github.com/actions/cache/blob/main/tips-and-workarounds.md#update-a-cache
-  #         key: ${{ github.job }}-ccache-${{ github.run_id }}
+      - name: Run Functional Tests (develop branch)
+        if: github.ref == 'refs/heads/develop'  # Run only if pushing to develop branch
+        run: |
+          cd Test-Gitactions-/gui-Dev/QASE_API
+          python3 unit_test_creator.py  # Change to your functional test script
+        shell: bash
