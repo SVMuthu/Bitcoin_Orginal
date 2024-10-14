@@ -3,7 +3,7 @@ name: CI
 on:
   schedule:
     # Cron job: runs every day at 3:30 PM UTC
-    - cron: '30 6 * * *'
+    - cron: '40 6 * * *'
 
 concurrency:
   group: ${{ github.run_id }}
